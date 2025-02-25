@@ -52,12 +52,12 @@ class CustomBuildExtension(BuildExtension):
 
 # Setup for the python package
 setup(
-    name="diff-lidar-tracer",
-    packages=['diff-lidar-tracer'],
+    name="diff_lidar_tracer",
+    packages=['diff_lidar_tracer'],
     version='0.0.1',
     ext_modules=[
         CUDAExtension(
-            name="diff-lidar-tracer._C",
+            name="diff_lidar_tracer._C",
             sources=[
                 "optix_tracer/test.cu",
                 "optix_tracer/common.cpp",
