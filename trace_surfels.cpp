@@ -207,16 +207,7 @@ TraceSurfelsCUDA(
     torch::Tensor out_attr_float32 = torch::zeros({H, W, NUM_CHANNELS_F}, float_opts);  // normal
     torch::Tensor out_attr_uint32 = -1 * torch::ones({H, W, NUM_CHANNELS_I}, int_opts);  // number of contributions
     torch::Tensor accum_gaussian_weights = torch::zeros({P}, float_opts);
-    // Create accumulated or dummy parameters for backward pass
-    // torch::Tensor n_contrib = torch::zeros({H, W, 1}, int_opts);  // number of contributions
-    // torch::Tensor deepest;
-    // torch::Tensor first_last_idx;
-    // if (training)
-    // {
-    //     // Initiate actual parameters used for backward pass
-    //     deepest = torch::zeros({H, W, 1}, float_opts);  // intersection depths
-    //     first_last_idx = torch::zeros({H, W, 2}, int_opts);  // last intersection index
-    // }
+
 
     // Create global parameters for the OptiX program
     Params params;

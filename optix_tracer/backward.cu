@@ -597,9 +597,8 @@ extern "C" __global__ void __raygen__ot()
     float2 uv;
 
 	float dL_drgb[3];
-	dL_drgb[0] = params.dL_dout_attr_float32[NUM_CHANNELS_F * tidx + INTENSITY_OFFSET];
-	dL_drgb[1] = params.dL_dout_attr_float32[NUM_CHANNELS_F * tidx + RAYHIT_OFFSET];
-	dL_drgb[2] = params.dL_dout_attr_float32[NUM_CHANNELS_F * tidx + RAYDROP_OFFSET];
+	for (int i = 0; i < 3; i++)
+		dL_drgb[i] = params.dL_dout_attr_float32[NUM_CHANNELS_F * tidx + RGB_OFFSET + i];
 	float dL_ddpt = params.dL_dout_attr_float32[NUM_CHANNELS_F * tidx + DEPTH_OFFSET];
 	float dL_dacc = params.dL_dout_attr_float32[NUM_CHANNELS_F * tidx + ACCUM_OFFSET];
 	float3 dL_dnorm = make_float3(
@@ -609,9 +608,8 @@ extern "C" __global__ void __raygen__ot()
 	);
 
 	float final_color[3];
-	final_color[0] = params.out_attr_float32[NUM_CHANNELS_F * tidx + INTENSITY_OFFSET];
-	final_color[1] = params.out_attr_float32[NUM_CHANNELS_F * tidx + RAYHIT_OFFSET];
-	final_color[2] = params.out_attr_float32[NUM_CHANNELS_F * tidx + RAYDROP_OFFSET];
+	for (int i = 0; i < 3; i++)
+		final_color[i] = params.out_attr_float32[NUM_CHANNELS_F * tidx + RGB_OFFSET + i];
 	const float final_depth = params.out_attr_float32[NUM_CHANNELS_F * tidx + DEPTH_OFFSET];
 	float3 final_normal = make_float3(
 		params.out_attr_float32[NUM_CHANNELS_F * tidx + NORMAL_OFFSET],
@@ -740,8 +738,6 @@ extern "C" __global__ void __raygen__ot()
 			// Update gradients w.r.t. covariance of Gaussian 3x3 (T)
 			const float2 dL_duv = {dL_dG * -G * uv.x, dL_dG * -G * uv.y};
 
-			if (flag)
-			printf("dL_dopacity: %.12f, dL_dG: %.12f\n", G * dL_dalpha, dL_dG);
 			// Update gradients w.r.t. opacity of the Gaussian
 			atomicAdd(&(params.dL_dopacities[gidx]), G * dL_dalpha);
 			

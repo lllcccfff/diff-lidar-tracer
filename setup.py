@@ -59,7 +59,6 @@ setup(
         CUDAExtension(
             name="diff_lidar_tracer._C",
             sources=[
-                "optix_tracer/test.cu",
                 "optix_tracer/common.cpp",
                 "optix_tracer/optix_wrapper.cpp",
                 "trace_surfels.cpp",

@@ -1,6 +1,6 @@
 /**
  * @file auxiliary.h
- * @author your name (you@domain.com)
+ * @author xbillowy
  * @brief
  * @version 0.1
  * @date 2024-08-17
@@ -17,17 +17,7 @@
 #include "glm/glm.hpp"
 
 #define TIGHTBBOX 0
-#define RENDER_AXUTILITY 1
-// #define MEDIAN_WEIGHT_OFFSET 7
-
-// Distortion helper macros
-#define BACKFACE_CULL 1
 #define DUAL_VISIABLE 1
-#define DETACH_WEIGHT 0
-
-__device__ const float near_n = 0.2;
-__device__ const float far_n = 100.0;
-__device__ const float FilterInvSquare = 2.0f;
 
 // Spherical harmonics coefficients
 __device__ const float SH_C0 = 0.28209479177387814f;

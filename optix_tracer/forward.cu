@@ -185,8 +185,6 @@ extern "C" __global__ void __raygen__ot()
     float last_dpt = 1e16f;
 
 	int contributor = 0;
-    int last_idx = -1; // for record
-    int first_idx = -1;
 
 
     // Prepare rendering data
@@ -298,11 +296,8 @@ extern "C" __global__ void __raygen__ot()
 	// All threads that treat valid pixel write out their final
 	// rendering data to the frame and auxiliary buffers.
     for (int ch = 0; ch < 3; ch++)
-        params.out_attr_float32[NUM_CHANNELS_F * tidx + RGB_OFFSET + ch] = 0;
+        params.out_attr_float32[NUM_CHANNELS_F * tidx + RGB_OFFSET + ch] = C[ch] + T * params.background[ch];
     params.out_attr_float32[NUM_CHANNELS_F * tidx + DEPTH_OFFSET] = D;
-    params.out_attr_float32[NUM_CHANNELS_F * tidx + INTENSITY_OFFSET] = C[0] + T * params.background[0];
-    params.out_attr_float32[NUM_CHANNELS_F * tidx + RAYHIT_OFFSET] = C[1] + T * params.background[1];
-    params.out_attr_float32[NUM_CHANNELS_F * tidx + RAYDROP_OFFSET] = C[2] + T * params.background[2];
     params.out_attr_float32[NUM_CHANNELS_F * tidx + ACCUM_OFFSET] = W;
 
     params.out_attr_float32[NUM_CHANNELS_F * tidx + NORMAL_OFFSET + 0] = N.x;
@@ -311,8 +306,6 @@ extern "C" __global__ void __raygen__ot()
     
     params.out_attr_float32[NUM_CHANNELS_F * tidx + FINALT_OFFSET] = T;
     
-    params.out_attr_uint32[NUM_CHANNELS_I * tidx + FIRST_IDX_OFFSET] = first_idx;
-    params.out_attr_uint32[NUM_CHANNELS_I * tidx + LAST_IDX_OFFSET] = last_idx;
 
 }
 
