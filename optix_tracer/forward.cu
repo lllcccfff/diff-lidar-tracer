@@ -178,6 +178,7 @@ extern "C" __global__ void __raygen__ot()
     // Initialize the volume rendering data
 	float3 N = make_float3(0.0f, 0.0f, 0.0f);
     glm::vec3 C = glm::vec3(0.0f);
+    float S[MAX_CLASS] = {0.0f};
     float D = 0.0f;
 	float W = 0.0f;
     float T = 1.0f;
@@ -269,6 +270,10 @@ extern "C" __global__ void __raygen__ot()
             C[1] += w * result.y;
             C[2] += w * result.z;
             
+            for (int j = 0; j < params.semantic_class; j++)
+                S[j] += w * params.semantics[gidx * params.semantic_class + j];
+
+
             // Render other componments
             D += w * dpt;
             W += w;
@@ -305,7 +310,8 @@ extern "C" __global__ void __raygen__ot()
     params.out_attr_float32[NUM_CHANNELS_F * tidx + NORMAL_OFFSET + 2] = N.z;
     
     params.out_attr_float32[NUM_CHANNELS_F * tidx + FINALT_OFFSET] = T;
-    
+    for (int j = 0; j < params.semantic_class; j++)
+        params.out_attr_float32[NUM_CHANNELS_F * tidx + SEMANTIC_OFFSET + j] = S[j];
 
 }
 

@@ -15,16 +15,19 @@
 // Some global parameters
 #define CHUNK_SIZE 16  // Chunk size for one traversal
 #define STEP_EPSILON 0.00001
+#define MAX_CLASS 30
+
 
 #define RGB_OFFSET 0 // 3
 #define DEPTH_OFFSET 3 // 1
 #define ACCUM_OFFSET 4 // 1
 #define NORMAL_OFFSET 5  // 3
 #define FINALT_OFFSET 8 // 1
-#define NUM_CHANNELS_F 9 // Default 3, RGB
-
+#define SEMANTIC_OFFSET 9 // 30
+#define NUM_CHANNELS_F (9 + MAX_CLASS) // Default 3, RGB
 
 #define NUM_CHANNELS_I 1
+
 
 #define BLOCK_X 16
 #define BLOCK_Y 16

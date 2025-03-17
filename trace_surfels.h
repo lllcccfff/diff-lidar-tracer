@@ -36,6 +36,7 @@ TraceSurfelsCUDA(
     const torch::Tensor& background,
     const torch::Tensor& means3D,
     const torch::Tensor& shs,
+    const torch::Tensor& semantics,
     const int degree,
     const torch::Tensor& colors_precomp,
     const torch::Tensor& opacities,
@@ -50,7 +51,7 @@ TraceSurfelsCUDA(
     const bool debug);
 
 
-std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 TraceSurfelsBackwardCUDA(
     const OptiXStateWrapper& stateWrapper,
     const torch::Tensor& ray_o,
@@ -59,6 +60,7 @@ TraceSurfelsBackwardCUDA(
     const torch::Tensor& background,
     const torch::Tensor& means3D,
     const torch::Tensor& shs,
+    const torch::Tensor& semantics,
     const int degree,
     const torch::Tensor& colors_precomp,
     const torch::Tensor& opacities,

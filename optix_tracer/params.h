@@ -42,13 +42,14 @@ struct Params
     bool training;  // training or testing
 
     // Input parameters
-    int P, H, W, D, M;  // Gaussian number, height, width, SHs number
+    int P, H, W, D, M, semantic_class;  // Gaussian number, height, width, SHs number
     float3* ray_o;  // (H, W, 3), ray origin
     float3* ray_d;  // (H, W, 3), ray direction
     float3* vertices;  // (P * 2, 3), primitive vertices
     float* background;  // (3), background color
     glm::vec3* means3D;  // (P, 3), center coordinates
     float* shs;  // (P, M), SHs
+    float* semantics;
     float* colors_precomp;  // (P, C), precomputed parameters
     float* opacities;  // (P, 1), opacities
     glm::vec2* scales;  // (P, 2), scales
@@ -80,6 +81,7 @@ struct Params
     glm::vec3* dL_dmeans3D;  // (P, 3), gradient of center coordinates
     glm::vec3* dL_dgrads3D_abs;
     glm::vec3* dL_dshs;  // (P, M, 3), gradient of SHs
+    float* dL_dsemantics;
     float* dL_dcolors;  // (P, C), gradient of middle colors
     float* dL_dopacities;  // (P, 1), gradient of opacities
     glm::vec2* dL_dscales;  // (P, 2), gradient of scales

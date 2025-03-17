@@ -500,6 +500,9 @@ extern "C" __global__ void __raygen__ot()
 		params.dL_dout_attr_float32[NUM_CHANNELS_F * tidx + NORMAL_OFFSET + 1],
 		params.dL_dout_attr_float32[NUM_CHANNELS_F * tidx + NORMAL_OFFSET + 2]
 	);
+	float dL_dsemantic[MAX_CLASS] = {0.0f};
+	for (int i = 0; i < params.semantic_class; i++)
+		dL_dsemantic[i] = params.dL_dout_attr_float32[NUM_CHANNELS_F * tidx + SEMANTIC_OFFSET + i];
 
 	float final_color[3];
 	for (int i = 0; i < 3; i++)
@@ -510,6 +513,9 @@ extern "C" __global__ void __raygen__ot()
 		params.out_attr_float32[NUM_CHANNELS_F * tidx + NORMAL_OFFSET + 1],
 		params.out_attr_float32[NUM_CHANNELS_F * tidx + NORMAL_OFFSET + 2]
 	);
+	float final_semantic[MAX_CLASS] = {0.0f};
+	for (int i = 0; i < params.semantic_class; i++)
+		final_semantic[i] = params.out_attr_float32[NUM_CHANNELS_F * tidx + SEMANTIC_OFFSET + i];
 	
 	const float final_T = params.out_attr_float32[NUM_CHANNELS_F * tidx + FINALT_OFFSET];
 
@@ -517,6 +523,7 @@ extern "C" __global__ void __raygen__ot()
     glm::vec3 C = {0.0f, 0.0f, 0.0f};
     float D = 0.0f;
 	float3 N = {0.0f, 0.0f, 0.0f};
+	float S[MAX_CLASS] = {0.0f};
 	float W = 0.0f;
 	float T = 1.0;
 	float test_T = 1.0f;
@@ -599,6 +606,8 @@ extern "C" __global__ void __raygen__ot()
             N += w * normal;
             D += w * dpt;
             W += w;
+			for (int s = 0; s < params.semantic_class; s++)
+				S[s] += w * params.semantics[gidx * params.semantic_class + s];
 
 			// Propagate gradients to per-Gaussian colors and keep
 			// gradients w.r.t. alpha (blending factor for a Gaussian/pixel pair)
@@ -611,6 +620,15 @@ extern "C" __global__ void __raygen__ot()
 				dL_dalpha += dL_dchannel * (T * c[ch] - (final_color[ch] - C[ch]) * inv_1_alpha);
 			}
 
+			const int sidx = gidx * params.semantic_class;
+			for (int s = 0; s < params.semantic_class; s++)
+			{
+				const float dL_dclass = dL_dsemantic[s];
+				atomicAdd(&params.dL_dsemantics[sidx + s], dL_dclass * w);
+				dL_dalpha += dL_dclass * (T * S[s] - (final_semantic[s] - S[s]) * inv_1_alpha);
+
+			}
+			
 			// Account for fact that alpha also influences how much of
 			// the background color is added if nothing left to blend
 			float dL_dbg = 0;

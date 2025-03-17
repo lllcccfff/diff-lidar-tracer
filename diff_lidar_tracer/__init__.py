@@ -21,6 +21,7 @@ class _TraceSurfels(torch.autograd.Function):
                 means3D,
                 grads3D,
                 shs,
+                semantics,
                 colors_precomp,
                 opacities,
                 scales,
@@ -38,6 +39,7 @@ class _TraceSurfels(torch.autograd.Function):
                 tracer_settings.bg,
                 means3D,
                 shs,
+                semantics,
                 tracer_settings.sh_degree,
                 colors_precomp,
                 opacities,
@@ -66,7 +68,7 @@ class _TraceSurfels(torch.autograd.Function):
         # Keep relevant tensors for backward
         ctx.tracer_settings = tracer_settings
         ctx.optix_context = optix_context
-        ctx.save_for_backward(ray_o, ray_d, vertices, means3D, shs, colors_precomp, opacities, scales, rotations, cov3Ds_precomp,
+        ctx.save_for_backward(ray_o, ray_d, vertices, means3D, shs, semantics, colors_precomp, opacities, scales, rotations, cov3Ds_precomp,
                               out_attr_float32, out_attr_uint32)
 
         # Return the per-Gaussian hit counter for training gradient filtering
@@ -79,7 +81,7 @@ class _TraceSurfels(torch.autograd.Function):
         # Restore necessary values from context
         tracer_settings = ctx.tracer_settings
         optix_context = ctx.optix_context
-        ray_o, ray_d, vertices, means3D, shs, colors_precomp, opacities, scales, rotations, cov3Ds_precomp, \
+        ray_o, ray_d, vertices, means3D, shs, semantics, colors_precomp, opacities, scales, rotations, cov3Ds_precomp, \
             out_attr_float32, out_attr_uint32 = ctx.saved_tensors
         # Restructure args as C++ method expects them
         args = (optix_context,
@@ -89,6 +91,7 @@ class _TraceSurfels(torch.autograd.Function):
                 tracer_settings.bg,
                 means3D,
                 shs,
+                semantics,
                 tracer_settings.sh_degree,
                 colors_precomp,
                 opacities,
@@ -109,13 +112,13 @@ class _TraceSurfels(torch.autograd.Function):
         if tracer_settings.debug:
             cpu_args = cpu_deep_copy_tuple(args) # Copy them before they can be corrupted
             try:
-                grad_means3D, grad_shs, grad_colors_precomp, grad_opacities, grad_scales, grad_rotations, grad_cov3Ds_precomp, grad_grads3D = _C.trace_surfels_backward(*args)
+                grad_means3D, grad_shs, grad_semantics, grad_colors_precomp, grad_opacities, grad_scales, grad_rotations, grad_cov3Ds_precomp, grad_grads3D = _C.trace_surfels_backward(*args)
             except Exception as ex:
                 torch.save(cpu_args, "snapshot_bw.dump")
                 print("\nAn error occured in backward. Writing snapshot_bw.dump for debugging.\n")
                 raise ex
         else:
-            grad_means3D, grad_shs, grad_colors_precomp, grad_opacities, grad_scales, grad_rotations, grad_cov3Ds_precomp, grad_grads3D = _C.trace_surfels_backward(*args)
+            grad_means3D, grad_shs, grad_semantics, grad_colors_precomp, grad_opacities, grad_scales, grad_rotations, grad_cov3Ds_precomp, grad_grads3D = _C.trace_surfels_backward(*args)
         grads = (
             None,
             None,
@@ -125,6 +128,7 @@ class _TraceSurfels(torch.autograd.Function):
             grad_means3D,
             grad_grads3D,
             grad_shs,
+            grad_semantics,
             grad_colors_precomp,
             grad_opacities,
             grad_scales,
@@ -177,6 +181,7 @@ class SurfelTracer(nn.Module):
                 means3D: torch.Tensor,
                 grads3D: torch.Tensor,
                 shs: torch.Tensor = None,
+                semantics: torch.Tensor = None,
                 colors_precomp: torch.Tensor = None,
                 opacities: torch.Tensor = None,
                 scales: torch.Tensor = None,
@@ -210,6 +215,7 @@ class SurfelTracer(nn.Module):
             means3D,
             grads3D,
             shs,
+            semantics,
             colors_precomp,
             opacities,
             scales,
