@@ -336,7 +336,7 @@ __device__ void compute_transmat_uv_forward(
 __forceinline__ __device__ float3 to_float3(const float4& a) {return make_float3(a.x, a.y, a.z);}
 
 
-__device__ void compute_transmat_uv_backward_2(
+__device__ void compute_transmat_uv_backward(
 	const float3 p_orig,
 	const float2 scale, 
 	float mod,
@@ -445,112 +445,6 @@ __device__ void compute_transmat_uv_backward_2(
 	// Update the gradient w.r.t. the mean3D
 	dL_dmean3D += dL_dv1 + dL_dv2 + dL_dv3;
 }
-
-__device__ void compute_transmat_uv_backward(
-	const float3* p_orig,
-	const glm::vec2 scale, 
-	float mod,
-	const glm::vec4 rot,
-	const float* viewmatrix,
-	const float3& dir,
-    const float3& xyz,
-	const glm::mat3x4 world2splat,
-	const float3& normal,
-    const float2 uv,
-	const float3& ray_o,
-	const float3& ray_d,
-	const float* dL_dnorm,
-	const float dL_ddpt,
-	const float2 dL_duv,
-	glm::vec2& dL_dscale,
-	glm::vec4& dL_drot,
-	glm::vec3& dL_dmean3D, 
-	const int gidx,
-	bool flag)
-{
-    // Convert the quaternion and scale vector to matrices
-    // * NOTE: R here is the row-major rotation matrix, namely R as in Python,
-    // * NOTE: We take it as column-major R^T
-    // * NOTE: S here is the inverse of the scale matrix
-	glm::mat3 R = quat_to_rotmat_transpose(rot);
-	glm::mat3 S = scale_to_mat_inverse(scale, mod);
-	glm::mat3 L = S * R;
-
-	// Compute the gradient w.r.t. the world2splat matrix
-	glm::mat3x4 dL_dworld2splat = glm::mat3x4(
-		glm::vec4(xyz.x, xyz.y, xyz.z, 1.0) * dL_duv.x,
-		glm::vec4(xyz.x, xyz.y, xyz.z, 1.0) * dL_duv.y,
-		glm::vec4(0.0, 0.0, 0.0, 0.0)
-	);
-
-	// Compute the gradient w.r.t. the original normal first
-	float3 dL_dtw = make_float3(dL_dnorm[0], dL_dnorm[1], dL_dnorm[2]);
-#if DUAL_VISIABLE
-	float cos = -sumf3(dir * normal);
-	dL_dtw = cos > 0 ? dL_dtw : -dL_dtw;
-#endif
-
-	float3 dL_dxyz = make_float3(
-		dL_duv.x * world2splat[0].x + dL_duv.y * world2splat[1].x,
-		dL_duv.x * world2splat[0].y + dL_duv.y * world2splat[1].y,
-		dL_duv.x * world2splat[0].z + dL_duv.y * world2splat[1].z
-	);
-	float dL_dt = dot(dL_dxyz, ray_d) + dL_ddpt;
-	float3 mean = *p_orig;
-	float3 mu_o = mean - ray_o;
-	float nd = dot(normal, ray_d);
-	float3 dt_dnormal = (mu_o - (dot(normal, mu_o) / nd * ray_d)) / nd;
-	dL_dtw += dL_dt * dt_dnormal;
-	float3 dL_dmu = dL_dt * normal / nd;
-
-	// Compute the gradient w.r.t. L
-	glm::mat3 dL_dL_col = glm::mat3(
-		glm::vec3(
-			dL_dworld2splat[0].x - dL_dworld2splat[0].w * mean.x,
-			dL_dworld2splat[1].x - dL_dworld2splat[1].w * mean.x,
-			dL_dworld2splat[2].x - dL_dworld2splat[2].w * mean.x
-		),
-		glm::vec3(
-			dL_dworld2splat[0].y - dL_dworld2splat[0].w * mean.y,
-			dL_dworld2splat[1].y - dL_dworld2splat[1].w * mean.y,
-			dL_dworld2splat[2].y - dL_dworld2splat[2].w * mean.y
-		),
-		glm::vec3(
-			dL_dworld2splat[0].z - dL_dworld2splat[0].w * mean.z,
-			dL_dworld2splat[1].z - dL_dworld2splat[1].w * mean.z,
-			dL_dworld2splat[2].z - dL_dworld2splat[2].w * mean.z
-		)
-	);
-
-	// Update gradient w.r.t. scale, rotation and mean3D
-	glm::mat3 dL_dR_inv_col = glm::mat3(
-		dL_dL_col[0] / glm::vec3(scale, 1.f),
-		dL_dL_col[1] / glm::vec3(scale, 1.f),
-		dL_dL_col[2] / glm::vec3(scale, 1.f)
-	);
-	glm::mat3 R_col = glm::transpose(R);
-	glm::mat3 dL_dR_col = - R_col * dL_dR_inv_col * R_col;
-	if (flag)
-		printf("dL_dR: %.12f, %.12f, %.12f, %.12f, %.12f, %.12f, %.12f, %.12f, %.12f\n", dL_dR_col[0].x, dL_dR_col[0].y, dL_dR_col[0].z, dL_dR_col[1].x, dL_dR_col[1].y, dL_dR_col[1].z, dL_dR_col[2].x, dL_dR_col[2].y, dL_dR_col[2].z);
-	
-	dL_dR_col[2][0] = dL_dtw.x;
-	dL_dR_col[2][1] = dL_dtw.y;
-	dL_dR_col[2][2] = dL_dtw.z;
-	dL_drot = quat_to_rotmat_vjp(rot, dL_dR_col);
-		if (flag)
-		printf("dL_drot: %.12f, %.12f, %.12f, %.12f\n", dL_drot.x, dL_drot.y, dL_drot.z, dL_drot.w);
-
-	dL_dscale = glm::vec2(
-		-(dL_dL_col[0].x * R[0].x + dL_dL_col[1].x * R[1].x + dL_dL_col[2].x * R[2].x) / scale.x / scale.x,
-		-(dL_dL_col[0].y * R[0].y + dL_dL_col[1].y * R[1].y + dL_dL_col[2].y * R[2].y) / scale.y / scale.y
-	);
-	dL_dmean3D = glm::vec3(
-		-(dL_dworld2splat[0].w * L[0].x + dL_dworld2splat[1].w * L[0].y + dL_dworld2splat[2].w * L[0].z) + dL_dmu.x,
-		-(dL_dworld2splat[0].w * L[1].x + dL_dworld2splat[1].w * L[1].y + dL_dworld2splat[2].w * L[1].z) + dL_dmu.y,
-		-(dL_dworld2splat[0].w * L[2].x + dL_dworld2splat[1].w * L[2].y + dL_dworld2splat[2].w * L[2].z) + dL_dmu.z
-	);
-}
-
 
 // Core __raygen__ program
 extern "C" __global__ void __raygen__ot()
@@ -746,12 +640,6 @@ extern "C" __global__ void __raygen__ot()
             float3 dir = make_float3(params.means3D[gidx].x - ray_oc.x, params.means3D[gidx].y - ray_oc.y, params.means3D[gidx].z - ray_oc.z);
             // float3 dir = ray_dm;
 #endif
-			// compute_transmat_uv_backward((float3*)(params.means3D + gidx), params.scales[gidx],
-			// 							params.scale_modifier, params.rotations[gidx], params.viewmatrix,
-			// 							dir, xyz, world2splat, normal, uv, ray_oc, ray_dc, 
-			// 							dL_dnormal_gs, dL_ddpt_gs, dL_duv,
-			// 							dL_dscale, dL_drot, dL_dmean3D, gidx, flag);
-										
 
 			// Compute gradients w.r.t. scaling, rotation, position of the Gaussian
 			float3 v1, v2, v3, h1, h2, h3;
@@ -782,7 +670,7 @@ extern "C" __global__ void __raygen__ot()
 	float cos = -sumf3(dir * normal);
 	float normal_sign = cos > 0 ? 1 : -1;
 #endif
-			compute_transmat_uv_backward_2(*(float3*)(params.means3D + gidx), *(float2*)(params.scales+gidx),
+			compute_transmat_uv_backward(*(float3*)(params.means3D + gidx), *(float2*)(params.scales+gidx),
 										params.scale_modifier, *(float4*)(params.rotations+gidx), params.viewmatrix,
 										xyz, (float4*)&world2splat, normal_sign, uv, v1, v2, v3, h1, h2, h3, ray_oc, ray_dc,
 										G, dL_dnormal_gs, dL_ddpt_gs, dL_dG,
