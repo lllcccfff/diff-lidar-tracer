@@ -270,6 +270,8 @@ extern "C" __global__ void __raygen__ot()
             C[1] += w * result.y;
             C[2] += w * result.z;
             
+            atomicAdd(params.accum_gaussian_weights + gidx, w);
+
             for (int j = 0; j < params.semantic_class; j++)
                 S[j] += w * params.semantics[gidx * params.semantic_class + j];
 
