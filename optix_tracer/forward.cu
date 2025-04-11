@@ -158,10 +158,6 @@ extern "C" __global__ void __raygen__ot()
 	glm::vec3 ray_o_glm = glm::vec3(ray_oc.x, ray_oc.y, ray_oc.z);
 	glm::vec3 ray_d_glm = glm::vec3(ray_dc.x, ray_dc.y, ray_dc.z);
     bool flag=false;
-    // if (idx.x == 25 && idx.y == 1000)
-    // {
-    //     printf("ray_o: %f, %f, %f", ray_oc.x, ray_oc.y, ray_oc.z);
-    // }
 
     // Creat and initialize the ray payload data
     RayPayload payload;

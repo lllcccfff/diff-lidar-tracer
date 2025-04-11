@@ -10,7 +10,7 @@ def cpu_deep_copy_tuple(input_tuple):
     copied_tensors = [item.cpu().clone() if isinstance(item, torch.Tensor) else item for item in input_tuple]
     return tuple(copied_tensors)
 
-class _TraceSurfels(torch.autograd.Function):
+class _Tracer(torch.autograd.Function):
     @staticmethod
     def forward(ctx,
                 optix_context,
@@ -136,7 +136,7 @@ class _TraceSurfels(torch.autograd.Function):
         return grads
 
 
-class SurfelTracingSettings(NamedTuple):
+class TracingSettings(NamedTuple):
     image_height: int  # no use, only for compatibility
     image_width: int  # no use, only for compatibility
     tanfovx: float  # no use, only for compatibility
@@ -151,12 +151,12 @@ class SurfelTracingSettings(NamedTuple):
     debug: bool
 
 
-class SurfelTracer(nn.Module):
+class Tracer(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
 
         # Find the OptiX shared library
-        self.pkg_dir = sysconfig.get_path('purelib') + '/diff-lidar-tracer'
+        self.pkg_dir = sysconfig.get_path('purelib') + '/diff_lidar_tracer'
 
         # Create the OptiX context
         self.optix_context = _C.OptiXStateWrapper(self.pkg_dir)
@@ -182,7 +182,7 @@ class SurfelTracer(nn.Module):
                 scales: torch.Tensor = None,
                 rotations: torch.Tensor = None,
                 cov3Ds_precomp: torch.Tensor = None,
-                tracer_settings: SurfelTracingSettings = None,
+                tracer_settings: TracingSettings = None,
                 ):
 
         # Check if colors or SHs are provided
@@ -201,7 +201,7 @@ class SurfelTracer(nn.Module):
         if cov3Ds_precomp is None: cov3Ds_precomp = torch.Tensor([]).cuda()
 
         # Invoke the autograd function
-        return _TraceSurfels.apply(
+        return _Tracer.apply(
             self.optix_context,
             self.training,
             ray_o,

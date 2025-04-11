@@ -36,7 +36,7 @@ class CustomBuildExtension(BuildExtension):
         # Use CMake to build the OptiX tracing kernel ptx files
         os.makedirs(pkg_source + '/build', exist_ok=True)
         os.system(f'cd {pkg_source}/build && cmake .. && cmake --build .')
-        pkg_target = sysconfig.get_path('purelib') + '/diff-lidar-tracer'
+        pkg_target = sysconfig.get_path('purelib') + '/diff_lidar_tracer'
 
         # Create the target directory if it does not exist
         if not os.path.exists(pkg_target):

@@ -63,15 +63,6 @@ struct Params
     float* out_attr_float32;  // (H, W, C), RGB color or other features
     int* out_attr_uint32;
     float* accum_gaussian_weights;
-    // float* out_dpt;  // (H, W, 1), depth
-    // float* out_acc;  // (H, W, 1), accumulated weight
-    // float* out_dist;  // (H, W, 1), distortion
-    // float3* out_norm;  // (H, W, 3), normal
-
-    // // Accmulated parameters used for backward pass
-    // uint32_t* n_contrib;  // (H, W, 1), number of contributions
-    // float* deepest;  // (H, W, M), intersection depths
-    // uint32_t* first_last_idx;  // (H, W, 1), last intersection index
     
     // Input upstream gradients
     float* dL_dout_attr_float32;  // (H, W, C), gradient of RGB color or other features

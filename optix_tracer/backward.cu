@@ -336,7 +336,7 @@ __device__ void compute_transmat_uv_forward(
 __forceinline__ __device__ float3 to_float3(const float4& a) {return make_float3(a.x, a.y, a.z);}
 
 
-__device__ void compute_transmat_uv_backward_2(
+__device__ void compute_transmat_uv_backward(
 	const float3 p_orig,
 	const float2 scale, 
 	float mod,
@@ -362,14 +362,12 @@ __device__ void compute_transmat_uv_backward_2(
 	float4& dL_drot,
 	float3& dL_dmean3D,
 	const uint3 idx,
-	int gidx, bool flag
+	int gidx
 )
 {
 	// Compute the gradient w.r.t. the uv
 	float2 dL_duv = dL_dG  * -G * uv;
 
-	if (flag)
-		printf("dL_duv: %.12f, %.12f\n", dL_duv.x, dL_duv.y);
 	float3 dL_dR[3];
 	// Compute the gradient w.r.t. the transposed rotation matrix
 	dL_dR[0] = dL_duv.x * (xyz - p_orig) / scale.x;
@@ -403,17 +401,6 @@ __device__ void compute_transmat_uv_backward_2(
 	float3 dL_dv2 = cross(v3 - v1, dL_dn) * dL_dd;
 	float3 dL_dv3 = cross(v1 - v2, dL_dn) * dL_dd;
 
-	// if ((idx.x == 420) && (idx.y == 600)) {
-	// 	float t = P / Q;
-	// 	float3 sec = ray_o + t * ray_d;
-	// 	printf("gidx: %u, optix xyz: %.18f %.18f %.18f\n", gidx, xyz.x, xyz.y, xyz.z);
-	// 	printf("gidx: %u, optix sec: %.18f %.18f %.18f\n", gidx, sec.x, sec.y, sec.z);
-	// 	printf("dL_dv1: %.18f %.18f %.18f\n", dL_dv1.x, dL_dv1.y, dL_dv1.z);
-	// 	printf("dL_dd: %.18f, Q: %.18f, N/Q: %.18f %.18f %.18f\n", dL_dd, Q, (N / Q).x, (N / Q).y, (N / Q).z);
-	// 	printf("dL_dv2: %.18f %.18f %.18f\n", dL_dv2.x, dL_dv2.y, dL_dv2.z);
-	// 	printf("dL_dv3: %.18f %.18f %.18f\n", dL_dv3.x, dL_dv3.y, dL_dv3.z);
-	// }
-
 	// Update the gradient w.r.t. the transposed rotation matrix R
 	dL_dR[0].x += scale.x * (h1.x * dL_dv1.x + h2.x * dL_dv2.x + h3.x * dL_dv3.x);
 	dL_dR[0].y += scale.x * (h1.x * dL_dv1.y + h2.x * dL_dv2.y + h3.x * dL_dv3.y);
@@ -435,9 +422,6 @@ __device__ void compute_transmat_uv_backward_2(
 	dL_drot.z = tmp.z;
 	dL_drot.w = tmp.w;
 
-	if (flag)
-	printf("dL_drot: %.12f, %.12f, %.12f, %.12f\n", dL_drot.x, dL_drot.y, dL_drot.z, dL_drot.w);
-
 	// Update the gradient w.r.t. the scale
 	dL_dscale.x += dot(scale.x * to_float3(world2splat[0]), h1.x * dL_dv1 + h2.x * dL_dv2 + h3.x * dL_dv3);
 	dL_dscale.y += dot(scale.y * to_float3(world2splat[1]), h1.y * dL_dv1 + h2.y * dL_dv2 + h3.y * dL_dv3);
@@ -446,112 +430,6 @@ __device__ void compute_transmat_uv_backward_2(
 	dL_dmean3D += dL_dv1 + dL_dv2 + dL_dv3;
 }
 
-__device__ void compute_transmat_uv_backward(
-	const float3* p_orig,
-	const glm::vec2 scale, 
-	float mod,
-	const glm::vec4 rot,
-	const float* viewmatrix,
-	const float3& dir,
-    const float3& xyz,
-	const glm::mat3x4 world2splat,
-	const float3& normal,
-    const float2 uv,
-	const float3& ray_o,
-	const float3& ray_d,
-	const float* dL_dnorm,
-	const float dL_ddpt,
-	const float2 dL_duv,
-	glm::vec2& dL_dscale,
-	glm::vec4& dL_drot,
-	glm::vec3& dL_dmean3D, 
-	const int gidx,
-	bool flag)
-{
-    // Convert the quaternion and scale vector to matrices
-    // * NOTE: R here is the row-major rotation matrix, namely R as in Python,
-    // * NOTE: We take it as column-major R^T
-    // * NOTE: S here is the inverse of the scale matrix
-	glm::mat3 R = quat_to_rotmat_transpose(rot);
-	glm::mat3 S = scale_to_mat_inverse(scale, mod);
-	glm::mat3 L = S * R;
-
-	// Compute the gradient w.r.t. the world2splat matrix
-	glm::mat3x4 dL_dworld2splat = glm::mat3x4(
-		glm::vec4(xyz.x, xyz.y, xyz.z, 1.0) * dL_duv.x,
-		glm::vec4(xyz.x, xyz.y, xyz.z, 1.0) * dL_duv.y,
-		glm::vec4(0.0, 0.0, 0.0, 0.0)
-	);
-
-	// Compute the gradient w.r.t. the original normal first
-	float3 dL_dtw = make_float3(dL_dnorm[0], dL_dnorm[1], dL_dnorm[2]);
-#if DUAL_VISIABLE
-	float cos = -sumf3(dir * normal);
-	dL_dtw = cos > 0 ? dL_dtw : -dL_dtw;
-#endif
-
-	float3 dL_dxyz = make_float3(
-		dL_duv.x * world2splat[0].x + dL_duv.y * world2splat[1].x,
-		dL_duv.x * world2splat[0].y + dL_duv.y * world2splat[1].y,
-		dL_duv.x * world2splat[0].z + dL_duv.y * world2splat[1].z
-	);
-	float dL_dt = dot(dL_dxyz, ray_d) + dL_ddpt;
-	float3 mean = *p_orig;
-	float3 mu_o = mean - ray_o;
-	float nd = dot(normal, ray_d);
-	float3 dt_dnormal = (mu_o - (dot(normal, mu_o) / nd * ray_d)) / nd;
-	dL_dtw += dL_dt * dt_dnormal;
-	float3 dL_dmu = dL_dt * normal / nd;
-
-	// Compute the gradient w.r.t. L
-	glm::mat3 dL_dL_col = glm::mat3(
-		glm::vec3(
-			dL_dworld2splat[0].x - dL_dworld2splat[0].w * mean.x,
-			dL_dworld2splat[1].x - dL_dworld2splat[1].w * mean.x,
-			dL_dworld2splat[2].x - dL_dworld2splat[2].w * mean.x
-		),
-		glm::vec3(
-			dL_dworld2splat[0].y - dL_dworld2splat[0].w * mean.y,
-			dL_dworld2splat[1].y - dL_dworld2splat[1].w * mean.y,
-			dL_dworld2splat[2].y - dL_dworld2splat[2].w * mean.y
-		),
-		glm::vec3(
-			dL_dworld2splat[0].z - dL_dworld2splat[0].w * mean.z,
-			dL_dworld2splat[1].z - dL_dworld2splat[1].w * mean.z,
-			dL_dworld2splat[2].z - dL_dworld2splat[2].w * mean.z
-		)
-	);
-
-	// Update gradient w.r.t. scale, rotation and mean3D
-	glm::mat3 dL_dR_inv_col = glm::mat3(
-		dL_dL_col[0] / glm::vec3(scale, 1.f),
-		dL_dL_col[1] / glm::vec3(scale, 1.f),
-		dL_dL_col[2] / glm::vec3(scale, 1.f)
-	);
-	glm::mat3 R_col = glm::transpose(R);
-	glm::mat3 dL_dR_col = - R_col * dL_dR_inv_col * R_col;
-	if (flag)
-		printf("dL_dR: %.12f, %.12f, %.12f, %.12f, %.12f, %.12f, %.12f, %.12f, %.12f\n", dL_dR_col[0].x, dL_dR_col[0].y, dL_dR_col[0].z, dL_dR_col[1].x, dL_dR_col[1].y, dL_dR_col[1].z, dL_dR_col[2].x, dL_dR_col[2].y, dL_dR_col[2].z);
-	
-	dL_dR_col[2][0] = dL_dtw.x;
-	dL_dR_col[2][1] = dL_dtw.y;
-	dL_dR_col[2][2] = dL_dtw.z;
-	dL_drot = quat_to_rotmat_vjp(rot, dL_dR_col);
-		if (flag)
-		printf("dL_drot: %.12f, %.12f, %.12f, %.12f\n", dL_drot.x, dL_drot.y, dL_drot.z, dL_drot.w);
-
-	dL_dscale = glm::vec2(
-		-(dL_dL_col[0].x * R[0].x + dL_dL_col[1].x * R[1].x + dL_dL_col[2].x * R[2].x) / scale.x / scale.x,
-		-(dL_dL_col[0].y * R[0].y + dL_dL_col[1].y * R[1].y + dL_dL_col[2].y * R[2].y) / scale.y / scale.y
-	);
-	dL_dmean3D = glm::vec3(
-		-(dL_dworld2splat[0].w * L[0].x + dL_dworld2splat[1].w * L[0].y + dL_dworld2splat[2].w * L[0].z) + dL_dmu.x,
-		-(dL_dworld2splat[0].w * L[1].x + dL_dworld2splat[1].w * L[1].y + dL_dworld2splat[2].w * L[1].z) + dL_dmu.y,
-		-(dL_dworld2splat[0].w * L[2].x + dL_dworld2splat[1].w * L[2].y + dL_dworld2splat[2].w * L[2].z) + dL_dmu.z
-	);
-}
-
-
 // Core __raygen__ program
 extern "C" __global__ void __raygen__ot()
 {
@@ -559,12 +437,7 @@ extern "C" __global__ void __raygen__ot()
     const uint3 idx = optixGetLaunchIndex();
     const uint3 dim = optixGetLaunchDimensions();
     uint32_t tidx = idx.x * dim.y + idx.y;
-    bool flag=false;
-    // if (idx.x == 25 && idx.y == 1000)
-    // {
-    //     flag = true;
-    // }
-
+	
     // Fetch the ray origin and direction of the current pixel
     float3 ray_om = params.ray_o[tidx];
     float3 ray_dm = params.ray_d[tidx];
@@ -745,13 +618,7 @@ extern "C" __global__ void __raygen__ot()
 #if DUAL_VISIABLE
             float3 dir = make_float3(params.means3D[gidx].x - ray_oc.x, params.means3D[gidx].y - ray_oc.y, params.means3D[gidx].z - ray_oc.z);
             // float3 dir = ray_dm;
-#endif
-			// compute_transmat_uv_backward((float3*)(params.means3D + gidx), params.scales[gidx],
-			// 							params.scale_modifier, params.rotations[gidx], params.viewmatrix,
-			// 							dir, xyz, world2splat, normal, uv, ray_oc, ray_dc, 
-			// 							dL_dnormal_gs, dL_ddpt_gs, dL_duv,
-			// 							dL_dscale, dL_drot, dL_dmean3D, gidx, flag);
-										
+#endif		
 
 			// Compute gradients w.r.t. scaling, rotation, position of the Gaussian
 			float3 v1, v2, v3, h1, h2, h3;
@@ -782,11 +649,11 @@ extern "C" __global__ void __raygen__ot()
 	float cos = -sumf3(dir * normal);
 	float normal_sign = cos > 0 ? 1 : -1;
 #endif
-			compute_transmat_uv_backward_2(*(float3*)(params.means3D + gidx), *(float2*)(params.scales+gidx),
+			compute_transmat_uv_backward(*(float3*)(params.means3D + gidx), *(float2*)(params.scales+gidx),
 										params.scale_modifier, *(float4*)(params.rotations+gidx), params.viewmatrix,
 										xyz, (float4*)&world2splat, normal_sign, uv, v1, v2, v3, h1, h2, h3, ray_oc, ray_dc,
 										G, dL_dnormal_gs, dL_ddpt_gs, dL_dG,
-										*(float2*)&dL_dscale, *(float4*)&dL_drot, *(float3*)&dL_dmean3D, idx, gidx, flag);
+										*(float2*)&dL_dscale, *(float4*)&dL_drot, *(float3*)&dL_dmean3D, idx, gidx);
 
 			// Update gradients w.r.t. scaling
 			atomicAdd(&(params.dL_dscales[gidx].x), dL_dscale.x);
@@ -801,9 +668,6 @@ extern "C" __global__ void __raygen__ot()
 			atomicAdd(&(params.dL_dmeans3D[gidx].y), dL_dmean3D.y);
 			atomicAdd(&(params.dL_dmeans3D[gidx].z), dL_dmean3D.z);
 
-			atomicAdd(&(params.dL_dgrads3D_abs[gidx].x), fabs(dL_dmean3D.x * dpt));
-			atomicAdd(&(params.dL_dgrads3D_abs[gidx].y), fabs(dL_dmean3D.y * dpt));
-			atomicAdd(&(params.dL_dgrads3D_abs[gidx].z), fabs(dL_dmean3D.z * dpt));
 			// Compute the gradient w.r.t. the SHs if they are present
 			if (params.colors_precomp == nullptr)
 				computeColorFromSHBackward(gidx, params.D, params.M, ray_d_glm,
