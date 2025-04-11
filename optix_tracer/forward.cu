@@ -269,6 +269,8 @@ extern "C" __global__ void __raygen__ot()
             D += w * dpt;
             W += w;
 
+            atomicAdd(params.accum_gaussian_weights + gidx, w);
+            
             // Update transmittence
             T = test_T;
 
